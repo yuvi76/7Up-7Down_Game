@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>7U7D</title>
+  <script src="https://code.jquery.com/jquery-3.6.0.js" integrity="sha256-H+K7U5CnXl1h5ywQfKtSj8PCmoN9aaq30gDh27Xc0jk="
+    crossorigin="anonymous"></script>
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+
+<body>
+
+  <div>
+    <input type="text" id="username" placeholder="Enter user name" />
+    <button id="login">Login</button>
+  </div>
+  <div>
+    <button id="logoutBtn" style="display: none;" type="button">Logout</button>
+    <button style="display: none;" id="leaveGameBtn" type="button">Leave Game</button>
+  </div>
+  <div id="start" style="display: none;">
+
+    <button id="play">Play</button>
+    <span id="timer"></span><br>
+    <div id="bidDiv" style="display: none;">
+      <input type="radio" value="7U" name="bid"> 7 UP
+      <input type="radio" value="7D" name="bid"> 7 Down
+      <input type="radio" value="7" name="bid"> 7
+      <input type="number" id="bidAmount" placeholder="Bid Amount">
+      <button id="placeBid">Bid</button>
+    </div>
+  </div>
+</body>
+
+<script src="assets/js/game.js"></script>
+<script>
+  // console.log = function () {}
+</script>
+
+</html>
