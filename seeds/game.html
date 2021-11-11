@@ -25,12 +25,15 @@
     <button id="play">Play</button>
     <span id="timer"></span><br>
     <div id="bidDiv" style="display: none;">
-      <input type="radio" value="7U" name="bid"> 7 UP
-      <input type="radio" value="7D" name="bid"> 7 Down
-      <input type="radio" value="7" name="bid"> 7
-      <input type="number" id="bidAmount" placeholder="Bid Amount">
-      <button id="placeBid">Bid</button>
+      <form id="bidForm">
+        <input type="radio" value="7U" name="bid"> 7 UP
+        <input type="radio" value="7D" name="bid"> 7 Down
+        <input type="radio" value="7" name="bid"> 7
+        <input type="number" id="bidAmount" placeholder="Bid Amount">
+        <button type="button" id="placeBid">Bid</button>
+      </form>
     </div>
+    <span id="resultText"></span>
   </div>
 </body>
 

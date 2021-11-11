@@ -1,4 +1,4 @@
-let sPlayername, userData;
+let sPlayername, userData, sCurrentMatchId;
 
 function validateEmpty(name) {
     var re = /^(?![\s-])[\w\s-]+$/;
@@ -99,7 +99,7 @@ function navigateTo(data) {
 }
 
 function enterQueue() {
-    socket.emit("enter queue");
+    socket.emit("enter queue", userData._id);
 }
 
 function enterMatch() {
@@ -111,11 +111,14 @@ function placeBid() {
     let bid = $("input[type='radio'][name='bid']:checked").val();
     bidAmount = $("#bidAmount").val();
     let oOptions = {
-        nCoin: bidAmount
+        sGameId: sCurrentMatchId,
+        sPlayerId: userData._id,
+        nBidAmount: bidAmount,
+        eBidOption: bid
     }
     $.ajax({
         type: "PUT",
-        url: "/api/v1/user/placeBid/" + userData.sPlayername,
+        url: "/api/v1/user/placeBid",
         data: oOptions,
         success: function (result, status, xhr) {
             console.log(result);
@@ -128,23 +131,14 @@ function placeBid() {
     socket.emit("place bid", bid, bidAmount);
 }
 
-function result(coinAmount) {
+function result(bResult, winAmount) {
 
-    let oOptions = {
-        nCoin: coinAmount
+    if (bResult === true) {
+        $("#resultText").html(`You win ${winAmount}`);
     }
-    $.ajax({
-        type: "PUT",
-        url: "/api/v1/user/gameResult/" + userData.sPlayername,
-        data: oOptions,
-        success: function (result, status, xhr) {
-            console.log(result);
-        },
-        error: function (xhr, status, error) {
-            console.log(xhr);
-            return;
-        }
-    });
+    else {
+        $("#resultText").html(`You Lose`);
+    }
 }
 function initSocket() {
     window.socket = io();
@@ -153,17 +147,20 @@ function initSocket() {
     })
 
     window.socket.on('timer', function (data) {
-        if (data.bidTime >= 0)
+        if (data.bidTime >= 0) {
             $('#timer').html(data.bidTime);
+            $('#resultText').html("");
+        }
     });
 
-    window.socket.on("enter match", function () {
+    window.socket.on("enter match", function (matchId) {
+        sCurrentMatchId = matchId
         enterMatch();
     });
 
-    window.socket.on("result", function (coinAmount, playerId) {
+    window.socket.on("result", function (playerId, bResult, winAmount) {
         if (playerId == window.socket.id) {
-            result(coinAmount, playerId);
+            result(bResult, winAmount);
         }
     });
 

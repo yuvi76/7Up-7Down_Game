@@ -1,3 +1,4 @@
+const axios = require('axios');
 const Socket = function () { };
 
 
@@ -19,14 +20,15 @@ Socket.prototype.init = function () {
             socket: socketConnection,
             bid: undefined,
             coinAmount: 0,
+            userId: ''
         });
 
         socketConnection.on("disconnect", function () {
             playerDisconnected(socketConnection);
         });
 
-        socketConnection.on("enter queue", function () {
-            enterQueue(socketConnection);
+        socketConnection.on("enter queue", function (userId) {
+            enterQueue(socketConnection, userId);
         });
 
         socketConnection.on("leave queue", function () {
@@ -45,9 +47,9 @@ Socket.prototype.init = function () {
 };
 
 /**************  Functions  *************/
-function playerDisconnected(socket) {
+async function playerDisconnected(socket) {
 
-    let player = findPlayerById(socket.id);
+    let player = await findPlayerById(socket.id);
     let index = players.indexOf(player);
     if (index > -1) {
         leaveQueue(socket);
@@ -58,29 +60,32 @@ function playerDisconnected(socket) {
 
 function findMatchBySocketId(socketId) {
 
-    for (let i = 0; i < matches.length; i++) {
-        for (let j = 0; j < matches[i].players.length; j++) {
-            if (matches[i].players[j].socket.id === socketId) {
-                return matches[i];
+    return new Promise(function (resolve, reject) {
+        for (let i = 0; i < matches.length; i++) {
+            for (let j = 0; j < matches[i].players.length; j++) {
+                if (matches[i].players[j].socket.id === socketId) {
+                    resolve(matches[i]);
+                }
             }
         }
-    }
-    return false;
+        reject(false);
+    });
 }
 
 function findPlayerById(socketId) {
-
-    for (let i = 0; i < players.length; i++) {
-        if (players[i].socket.id === socketId) {
-            return players[i];
+    return new Promise(function (resolve, reject) {
+        for (let i = 0; i < players.length; i++) {
+            if (players[i].socket.id === socketId) {
+                resolve(players[i]);
+            }
         }
-    }
-    return false;
+        reject(false);
+    });
 }
 
-function enterQueue(socket) {
+async function enterQueue(socket, userId) {
 
-    let player = findPlayerById(socket.id);
+    let player = await findPlayerById(socket.id);
     if (queue.indexOf(player) === -1) {
         queue.push(player);
 
@@ -92,6 +97,7 @@ function enterQueue(socket) {
                         socket: queue[index].socket,
                         bid: queue[index].bid,
                         coinAmount: queue[index].coinAmount,
+                        userId
                     };
 
                     data.players.push(playerObject);
@@ -100,14 +106,14 @@ function enterQueue(socket) {
                 }
             })
         } else {
-            createMatch([queue.shift()]);
+            await createMatch([queue.shift()], userId);
         }
     }
 }
 
-function leaveQueue(socket) {
+async function leaveQueue(socket) {
 
-    let player = findPlayerById(socket.id);
+    let player = await findPlayerById(socket.id);
     let index = queue.indexOf(player);
     if (index > -1) {
         queue.splice(index, 1);
@@ -115,44 +121,58 @@ function leaveQueue(socket) {
     socket.emit("queue left");
 }
 
-function createMatch(participants) {
+async function createMatch(participants, userId) {
 
-    let id = createId();
-    let match = {
-        matchId: id,
-        players: [],
-        isOver: false,
-        timerActive: false,
-        timer: timerDuration
-    };
-    for (let i = 0; i < participants.length; i++) {
-        let playerObject = {
-            socket: participants[i].socket,
-            bid: participants[i].bid,
-            coinAmount: participants[i].coinAmount,
+    createId().then(async (id) => {
+        let playerId = [];
+        let match = {
+            matchId: id,
+            players: [],
+            isOver: false,
+            timerActive: false,
+            timer: timerDuration
         };
-        match.players.push(playerObject);
-        participants[i].socket.join(id);
-    }
-    matches.push(match);
 
-    io.to(id).emit("enter match");
-    match.timerActive = true;
+        for (let i = 0; i < participants.length; i++) {
+            let playerObject = {
+                socket: participants[i].socket,
+                bid: participants[i].bid,
+                coinAmount: participants[i].coinAmount,
+                userId: (userId === undefined ? participants[i].userId : userId)
+            };
+            playerId.push((userId === undefined ? participants[i].userId : userId))
+            match.players.push(playerObject);
+            participants[i].socket.join(id);
+        }
+        matches.push(match);
+
+        await axios.post(`${process.env.URL}/api/v1/game/create`, {
+            sGameId: match.matchId,
+            aPlayer: playerId
+        }).then(function (response) {
+            console.log(response.data);
+            io.to(id).emit("enter match", response.data.data._id);
+            match.timerActive = true;
+        }).catch(function (error) {
+            console.log(error);
+        })
+    });
 }
 
 function createId() {
-
-    let id = "";
-    let charset = "ABCDEFGHIJKLMNOPQRSTUCWXYZabcdefghijklmnopqrtsuvwxyz1234567890";
-    for (let i = 0; i < 16; i++) {
-        id += charset.charAt(Math.floor(Math.random() * charset.length));
-    }
-    return id;
+    return new Promise((resolve, reject) => {
+        let id = "";
+        let charset = "ABCDEFGHIJKLMNOPQRSTUCWXYZabcdefghijklmnopqrtsuvwxyz1234567890";
+        for (let i = 0; i < 16; i++) {
+            id += charset.charAt(Math.floor(Math.random() * charset.length));
+        }
+        resolve(id);
+    });
 }
 
-function rematch(socket) {
+async function rematch(socket) {
 
-    let match = findMatchBySocketId(socket.id);
+    let match = await findMatchBySocketId(socket.id);
     console.log("match", match);
     if (match) {
 
@@ -169,7 +189,6 @@ function rematch(socket) {
 
 function updateBid(socket, bid, bidAmount) {
 
-
     for (let i = 0; i < matches.length; i++) {
         for (let j = 0; j < matches[i].players.length; j++) {
             if (matches[i].players[j].socket.id === socket.id) {
@@ -184,27 +203,39 @@ function playGame(match) {
     let dice1 = Math.floor(Math.random() * 6) + 1;
     let dice2 = Math.floor(Math.random() * 6) + 1;
     let diceFinalValue = dice1 + dice2;
-
+    let bResult = false;
     console.log(diceFinalValue);
 
-    match.players.forEach(player => {
+    match.players.forEach(async (player) => {
         if (player.bid === undefined) {
             return;
         }
         if (player.bid == '7U' && diceFinalValue > 7) {
             player.coinAmount = player.coinAmount * 2;
+            bResult = true;
             console.log("******************* 7 UP ************");
         } else if (player.bid == '7D' && diceFinalValue < 7) {
             player.coinAmount = player.coinAmount * 2;
+            bResult = true;
             console.log("****************** 7 Down ***********");
         } else if (player.bid == '7' && diceFinalValue == 7) {
             player.coinAmount = player.coinAmount * 4;
+            bResult = true;
             console.log("xxxxxxxxxxxxxxxxxxxxxxxx 7 xxxxxxxxxxxxxxxxx");
         } else {
             player.coinAmount = player.coinAmount * 0;
+            bResult = false;
             console.log("----------------------------------");
         }
-        io.to(match.matchId).emit("result", player.coinAmount, player.socket.id);
+
+        await axios.put(`${process.env.URL}/api/v1/user/gameResult`, {
+            sPlayerId: player.userId,
+            nCoin: player.coinAmount
+        }).then(function (response) {
+            io.to(match.matchId).emit("result", player.socket.id, bResult, player.coinAmount);
+        }).catch(function (error) {
+            console.log(error);
+        })
     });
 
     setTimeout(() => {
@@ -213,9 +244,9 @@ function playGame(match) {
 
 }
 
-function leaveMatch(socket) {
+async function leaveMatch(socket) {
 
-    let match = findMatchBySocketId(socket.id);
+    let match = await findMatchBySocketId(socket.id);
     if (match) {
         match.players = match.players.filter(function (obj) {
             return obj.socket.id !== socket.id;
@@ -227,9 +258,9 @@ function leaveMatch(socket) {
     }
 }
 
-function endMatch(match, reason) {
+async function endMatch(match, reason) {
 
-    io.to(match.matchId).emit("end match", reason);
+    await io.to(match.matchId).emit("end match", reason);
     match.isOver = true;
     match.timer = timerDuration;
     match.timerActive = false;
