@@ -10,6 +10,7 @@ $(document).ready(function () {
     $("#logoutBtn").bind("click", logOut);
     $("#play").on("click", enterQueue);
     $("#placeBid").on("click", placeBid);
+    $("#leavematch").on("click", leaveMatch);
 
     if (sessionStorage) {
         userData = JSON.parse(sessionStorage.getItem("userData"));
@@ -83,9 +84,10 @@ function logOut() {
     if (sessionStorage) {
         sessionStorage.removeItem("userData");
     }
+    socket.emit("logout");
+    $('#timer').html("");
     $("#login-screen").show();
     $("#start,#logoutBtn").hide();
-
 }
 
 function navigateTo(data) {
@@ -104,6 +106,12 @@ function enterQueue() {
 
 function enterMatch() {
     $("#bidDiv").css("display", "block");
+}
+
+function leaveMatch() {
+    socket.emit("leave match");
+    $('#timer').html("");
+    $("#bidDiv").css("display", "none");
 }
 
 function placeBid() {

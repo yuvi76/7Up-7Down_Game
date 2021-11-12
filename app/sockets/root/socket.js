@@ -43,6 +43,14 @@ Socket.prototype.init = function () {
             rematch(socketConnection);
         });
 
+        socketConnection.on("leave match", function () {
+            leaveMatch(socketConnection);
+        });
+
+        socketConnection.on("logout", function () {
+            playerDisconnected(socketConnection);
+        });
+
     });
 };
 
